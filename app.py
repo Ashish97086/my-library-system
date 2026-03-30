@@ -26,7 +26,7 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, resource TEXT, 
                   join_date TEXT, return_date TEXT, total_fee INTEGER, paid INTEGER)''')
     # Admin Email (Yahan apna email daalein)
-    c.execute("INSERT OR IGNORE INTO users (email, name, is_approved) VALUES ('aapka@gmail.com', 'Admin', 1)")
+    c.execute("INSERT OR IGNORE INTO users (email, name, is_approved) VALUES ('aak803110@gmail.com', 'Admin', 1)")
     conn.commit()
     conn.close()
 
