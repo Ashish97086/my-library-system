@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from flask import Flask, redirect, url_for, session, render_template, request
+from flask import Flask, redirect, url_for, session, render_template, request, flash
 from authlib.integrations.flask_client import OAuth
 from datetime import datetime, timedelta
 
@@ -11,92 +11,90 @@ app.secret_key = "LMS_SUPER_SECRET_KEY"
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'), 
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
 
-# --- Database Initialization ---
-def init_db():
+# --- Database Helper ---
+def get_db():
     conn = sqlite3.connect('library.db')
-    c = conn.cursor()
-    c.execute('CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT, is_approved INTEGER DEFAULT 0)')
-    c.execute('''CREATE TABLE IF NOT EXISTS students 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, resource TEXT, 
-                  join_date TEXT, return_date TEXT, total_fee INTEGER, paid INTEGER)''')
-    # Admin Email (Yahan apna email daalein)
-    c.execute("INSERT OR IGNORE INTO users (email, name, is_approved) VALUES ('Aak803110@gmail.com', 'Admin', 1)")
-    conn.commit()
-    conn.close()
+    conn.row_factory = sqlite3.Row  # This allows accessing columns by name
+    return conn
 
-# --- Custom Routes ---
+# --- Initialize Database ---
+def init_db():
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute('CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT, is_approved INTEGER DEFAULT 0)')
+        c.execute('''CREATE TABLE IF NOT EXISTS students (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                        name TEXT, 
+                        resource TEXT, 
+                        join_date TEXT, 
+                        return_date TEXT, 
+                        total_fee INTEGER, 
+                        paid INTEGER)''')
+        # Admin setup
+        c.execute("INSERT OR IGNORE INTO users (email, name, is_approved) VALUES ('Aak803110@gmail.com', 'Admin', 1)")
+        conn.commit()
+
+# Run init_db when the app starts
+init_db()
+
+# --- Routes ---
 
 @app.route('/')
 def dashboard():
-    if 'user' not in session: return render_template('login.html')
-    conn = sqlite3.connect('library.db')
-    students = conn.execute("SELECT * FROM students").fetchall()
-    reminders = []
-    today = datetime.now().date()
-    for s in students:
-        ret_date = datetime.strptime(s[4], '%Y-%m-%d').date()
-        if ret_date < today: reminders.append(f"⚠️ {s[1]} ka time khatam!")
-        if (s[5]-s[6]) > 0: reminders.append(f"💰 {s[1]} ka payment baki hai.")
+    if 'user' not in session:
+        return redirect(url_for('login_page'))
+    
+    conn = get_db()
+    students = conn.execute('SELECT * FROM students ORDER BY id DESC LIMIT 5').fetchall()
+    stats = {
+        'total_students': conn.execute('SELECT COUNT(*) FROM students').fetchone()[0],
+        'total_revenue': conn.execute('SELECT SUM(paid) FROM students').fetchone()[0] or 0
+    }
     conn.close()
-    return render_template('dashboard.html', students=students, reminders=reminders)
+    return render_template('dashboard.html', students=students, stats=stats)
 
 @app.route('/students')
-def student_list():
-    if 'user' not in session: return redirect('/')
-    conn = sqlite3.connect('library.db')
-    students = conn.execute("SELECT * FROM students").fetchall()
+def students_list():
+    if 'user' not in session: return redirect(url_for('login_page'))
+    
+    conn = get_db()
+    students = conn.execute('SELECT * FROM students').fetchall()
     conn.close()
     return render_template('students.html', students=students)
 
-@app.route('/payments')
-def payment_history():
-    if 'user' not in session: return redirect('/')
-    conn = sqlite3.connect('library.db')
-    students = conn.execute("SELECT * FROM students").fetchall()
-    conn.close()
-    return render_template('payments.html', students=students)
-
-@app.route('/add', methods=['POST'])
-def add_entry():
-    name, res = request.form['name'], request.form['resource']
-    days, paid = int(request.form['days']), int(request.form['paid'])
-    join_date = datetime.now().strftime('%Y-%m-%d')
-    ret_date = (datetime.now() + timedelta(days=days)).strftime('%Y-%m-%d')
-    
-    conn = sqlite3.connect('library.db')
-    conn.execute("INSERT INTO students (name, resource, join_date, return_date, total_fee, paid) VALUES (?,?,?,?,?,?)",
-                 (name, res, join_date, ret_date, 500, paid))
-    conn.commit()
-    conn.close()
-    return redirect('/')
-
-# --- Auth Routes ---
 @app.route('/login')
-def login(): return google.authorize_redirect(url_for('auth', _external=True))
+def login_page():
+    return render_template('login.html')
 
-@app.route('/auth')
-def auth():
+@app.route('/authorize')
+def authorize():
+    redirect_uri = url_for('callback', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/callback')
+def callback():
     token = google.authorize_access_token()
-    user_info = google.get('https://www.googleapis.com/oauth2/v1/userinfo').json()
-    email = user_info['email']
-    conn = sqlite3.connect('library.db')
-    user = conn.execute("SELECT is_approved FROM users WHERE email=?", (email,)).fetchone()
-    if user and user[0] == 1:
-        session['user'] = email
-        return redirect('/')
-    return "<h1>Access Denied</h1><p>Admin se approval lein.</p>"
+    user_info = token.get('userinfo')
+    if user_info:
+        session['user'] = user_info
+        # Check if user is in our database, if not, add them (unapproved)
+        conn = get_db()
+        conn.execute('INSERT OR IGNORE INTO users (email, name) VALUES (?, ?)', 
+                     (user_info['email'], user_info['name']))
+        conn.commit()
+        conn.close()
+    return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 def logout():
-    session.clear()
-    return redirect('/')
+    session.pop('user', None)
+    return redirect(url_for('login_page'))
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)
