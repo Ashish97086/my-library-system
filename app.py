@@ -11,8 +11,8 @@ app.secret_key = "LMS_SUPER_SECRET_KEY"
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id='YOUR_GOOGLE_CLIENT_ID', 
-    client_secret='YOUR_GOOGLE_CLIENT_SECRET',
+    client_id='GOOGLE_CLIENT_ID', 
+    client_secret='GOOGLE_CLIENT_SECRET',
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
