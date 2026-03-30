@@ -1,82 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>LMS Pro Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMS | Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #f4f7f6; font-family: 'Segoe UI'; }
-        .sidebar { width: 250px; height: 100vh; background: #2c3e50; position: fixed; color: white; padding: 20px; }
-        .sidebar a { color: #bdc3c7; text-decoration: none; display: block; padding: 12px; border-radius: 8px; margin-bottom: 5px; }
-        .sidebar a.active, .sidebar a:hover { background: #34495e; color: white; }
-        .main { margin-left: 260px; padding: 30px; }
-        .glass-card { background: white; border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s; }
-        .glass-card:hover { transform: translateY(-5px); }
+        :root { --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
+        .sidebar { background: #fff; min-height: 100vh; border-right: 1px solid #eee; }
+        .stat-card { border: none; border-radius: 15px; transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); }
+        .bg-gradient-primary { background: var(--primary-gradient); color: white; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h3 class="mb-4 text-center text-primary">LMS PRO</h3>
-        <a href="/" class="active"><i class="fas fa-home me-2"></i> Dashboard</a>
-        <a href="/students"><i class="fas fa-users me-2"></i> Student List</a>
-        <a href="/payments"><i class="fas fa-money-bill-wave me-2"></i> Payments</a>
-        <a href="/logout" class="mt-5 text-danger"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
-    </div>
 
-    <div class="main">
-        <div class="d-flex justify-content-between mb-4 animate__animated animate__fadeIn">
-            <h2>Welcome, Admin 🚀</h2>
-            <div class="p-2 bg-white rounded shadow-sm small">{{ session['user'] }}</div>
-        </div>
+<div class="container-fluid">
+    <div class="row">
+        <nav class="col-md-2 d-none d-md-block sidebar p-4">
+            <h4 class="text-primary fw-bold mb-4">Library MS</h4>
+            <ul class="nav flex-column gap-2">
+                <li class="nav-item"><a class="nav-link active fw-bold" href="/"><i class="fas fa-home me-2"></i> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link text-dark" href="/students"><i class="fas fa-users me-2"></i> Students</a></li>
+                <li class="nav-item"><a class="nav-link text-dark" href="#"><i class="fas fa-book me-2"></i> Resources</a></li>
+                <hr>
+                <li class="nav-item"><a class="nav-link text-danger" href="/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
+            </ul>
+        </nav>
 
-        <div class="row g-4 mb-4">
-            <div class="col-md-4 animate__animated animate__zoomIn">
-                <div class="card glass-card p-4 border-start border-primary border-5 text-center">
-                    <h6>Total Members</h6>
-                    <h2>{{ students|length }}</h2>
+        <main class="col-md-10 p-5">
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <div>
+                    <h2 class="fw-bold">Welcome back, {{ session['user']['name'] }}!</h2>
+                    <p class="text-muted">Here is what's happening in your library today.</p>
                 </div>
+                <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                    <i class="fas fa-plus me-2"></i> New Entry
+                </button>
             </div>
-            <div class="col-md-4 animate__animated animate__zoomIn" style="animation-delay: 0.1s;">
-                <div class="card glass-card p-4 border-start border-danger border-5 text-center">
-                    <h6>Alerts</h6>
-                    <h2>{{ reminders|length }}</h2>
-                </div>
-            </div>
-        </div>
 
-        <div class="row">
-            <div class="col-lg-4 animate__animated animate__fadeInLeft">
-                <div class="card glass-card p-4">
-                    <h5 class="mb-3">New Registration</h5>
-                    <form action="/add" method="POST">
-                        <input type="text" name="name" class="form-control mb-2" placeholder="Student Name" required>
-                        <input type="text" name="resource" class="form-control mb-2" placeholder="Book / Study Seat" required>
-                        <div class="row g-2">
-                            <div class="col-6"><input type="number" name="days" class="form-control mb-2" placeholder="Days"></div>
-                            <div class="col-6"><input type="number" name="paid" class="form-control mb-2" placeholder="Fee Paid"></div>
+            <div class="row g-4 mb-5">
+                <div class="col-md-4">
+                    <div class="card stat-card bg-gradient-primary shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase opacity-75">Total Students</h6>
+                                <h2 class="mb-0 fw-bold">{{ stats['total_students'] }}</h2>
+                            </div>
+                            <i class="fas fa-user-graduate fa-2x opacity-50"></i>
                         </div>
-                        <button class="btn btn-primary w-100 mt-2">Add Member</button>
-                    </form>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card bg-white shadow-sm p-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted">Total Revenue</h6>
+                                <h2 class="mb-0 fw-bold text-success">₹{{ stats['total_revenue'] }}</h2>
+                            </div>
+                            <i class="fas fa-wallet fa-2x text-success opacity-50"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="col-lg-8 animate__animated animate__fadeInRight">
-                <div class="card glass-card p-4">
-                    <h5 class="mb-3">Recent Activity</h5>
-                    <table class="table table-hover">
-                        <thead><tr><th>Student</th><th>Resource</th><th>Status</th></tr></thead>
-                        <tbody>
-                            {% for s in students[:5] %}
+
+            <div class="card border-0 shadow-sm p-4">
+                <h5 class="fw-bold mb-4">Recent Admissions</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <td>{{ s[1] }}</td><td>{{ s[2] }}</td>
-                                <td>{% if (s[5]-s[6]) == 0 %}<span class="badge bg-success">Paid</span>{% else %}<span class="badge bg-danger">Due</span>{% endif %}</td>
+                                <th>Name</th>
+                                <th>Resource</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in students %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-light rounded-circle p-2 me-3 text-primary"><i class="fas fa-user"></i></div>
+                                        <span class="fw-semibold">{{ s['name'] }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ s['resource'] }}</td>
+                                <td><span class="badge bg-success-subtle text-success">Active</span></td>
+                                <td class="text-muted small">{{ s['join_date'] }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
